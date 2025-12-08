@@ -17,21 +17,15 @@ class GarminWinterApp extends Application.AppBase {
 }
 
 class GarminWinterView extends WatchUi.WatchFace {
-    // Colors inspired by reference image
-    private const SKY_DARK = 0x0D1B2A;           // Dark night sky
-    private const SKY_MID = 0x1B2838;            // Mid sky
-    private const MOUNTAIN_SNOW = 0x8FAEC4;     // Snow on mountains
-    private const MOUNTAIN_DARK = 0x2A4A6A;     // Mountain shadow
-    private const MOUNTAIN_MID = 0x3A5A7A;      // Mountain mid
-    private const FOREST_DARK = 0x0A1A2A;       // Dark forest
-    private const FOREST_MID = 0x1A3A4A;        // Mid forest
-    private const TREE_DARK = 0x0F2030;         // Dark tree
-    private const TREE_SNOW = 0xB0D0E8;         // Snow on trees
-    private const SNOW_BRIGHT = 0xE8F4FF;       // Bright snow
-    private const SNOW_MID = 0xA8C8E0;          // Mid snow
-    private const SNOW_SHADOW = 0x6090B0;       // Snow shadow
-    private const STAR_COLOR = 0xFFFFFF;        // Stars
-    private const FONT_COLOR = 0xFFFFFF;        // White text
+    // Colors from SVG reference
+    private const SKY_COLOR = 0x192138;          // Dark night sky
+    private const MOUNTAIN_FAR = 0x2E3C5C;       // Far mountains
+    private const MOUNTAIN_FRONT = 0x3C4F78;     // Front mountain
+    private const SNOW_WHITE = 0xFFFFFF;         // Pure white snow
+    private const SNOW_SHADOW = 0xD0E0F0;        // Snow shadow/texture
+    private const TREE_DARK = 0x0F2040;          // Dark tree
+    private const TREE_LIGHT = 0x1A3A60;         // Light tree
+    private const FONT_COLOR = 0xFFFFFF;         // White text
 
     private var _isLowPower as Boolean = false;
 
@@ -49,231 +43,203 @@ class GarminWinterView extends WatchUi.WatchFace {
         var centerX = width / 2;
         var centerY = height / 2;
 
-        // Draw sky gradient (simplified)
-        drawSky(dc, width, height);
+        // Draw sky background
+        dc.setColor(SKY_COLOR, SKY_COLOR);
+        dc.clear();
 
         // Draw stars
-        if (!_isLowPower) {
-            drawStars(dc, width, height, clockTime.sec);
-        }
+        drawStars(dc, width, height);
 
-        // Draw mountains with snow
+        // Draw mountains (back to front)
         drawMountains(dc, width, height);
-
-        // Draw forest layers
-        drawForest(dc, width, height);
-
-        // Draw pine trees on sides
-        drawTrees(dc, width, height);
 
         // Draw snow ground
         drawSnowGround(dc, width, height);
 
-        // Draw falling snow
+        // Draw trees on sides
+        drawTrees(dc, width, height);
+
+        // Draw falling snow animation
         if (!_isLowPower) {
             drawFallingSnow(dc, width, height, clockTime.sec);
         }
 
         // Draw time with pixel font
-        drawFrostTime(dc, centerX, centerY - 20, clockTime);
+        drawFrostTime(dc, centerX, centerY - 15, clockTime);
 
         // Draw date
-        drawFrostDate(dc, centerX, centerY + 25);
+        drawFrostDate(dc, centerX, centerY + 30);
     }
 
-    // Draw night sky
-    function drawSky(dc as Dc, width as Number, height as Number) as Void {
-        dc.setColor(SKY_DARK, SKY_DARK);
-        dc.clear();
-
-        // Slight gradient effect with bands
-        dc.setColor(SKY_MID, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(0, (height * 0.15).toNumber(), width, (height * 0.15).toNumber());
+    // Draw stars in sky
+    function drawStars(dc as Dc, width as Number, height as Number) as Void {
+        dc.setColor(SNOW_WHITE, Graphics.COLOR_TRANSPARENT);
+        // Fixed star positions from SVG
+        dc.fillRectangle((width * 0.08).toNumber(), (height * 0.08).toNumber(), 3, 3);
+        dc.fillRectangle((width * 0.23).toNumber(), (height * 0.12).toNumber(), 3, 3);
+        dc.fillRectangle((width * 0.39).toNumber(), (height * 0.05).toNumber(), 3, 3);
+        dc.fillRectangle((width * 0.55).toNumber(), (height * 0.15).toNumber(), 3, 3);
+        dc.fillRectangle((width * 0.70).toNumber(), (height * 0.09).toNumber(), 3, 3);
+        dc.fillRectangle((width * 0.86).toNumber(), (height * 0.18).toNumber(), 3, 3);
+        dc.fillRectangle((width * 0.03).toNumber(), (height * 0.28).toNumber(), 3, 3);
+        dc.fillRectangle((width * 0.94).toNumber(), (height * 0.31).toNumber(), 3, 3);
     }
 
-    // Draw twinkling stars
-    function drawStars(dc as Dc, width as Number, height as Number, seconds as Number) as Void {
-        dc.setColor(STAR_COLOR, Graphics.COLOR_TRANSPARENT);
-
-        // Static star positions in sky area
-        var starY = (height * 0.35).toNumber();
-        for (var i = 0; i < 25; i++) {
-            var x = ((i * 29 + 7) % width);
-            var y = ((i * 17 + 3) % starY);
-            var twinkle = ((seconds + i) % 4);
-            if (twinkle > 0) {
-                dc.fillRectangle(x, y, 2, 2);
-            }
-        }
-    }
-
-    // Draw mountains with snow caps
+    // Draw layered mountains
     function drawMountains(dc as Dc, width as Number, height as Number) as Void {
-        var baseY = (height * 0.55).toNumber();
+        // Far mountains layer 1 (back, semi-transparent effect via darker color)
+        var farColor1 = 0x252F4A; // Darker version for opacity effect
+        dc.setColor(farColor1, Graphics.COLOR_TRANSPARENT);
+        drawMountainRange(dc, width, height, 0.70, 0.47, 0.70, 0.47);
 
-        // Back mountain (left) - darker
-        dc.setColor(MOUNTAIN_DARK, Graphics.COLOR_TRANSPARENT);
-        drawMountainShape(dc, (width * 0.25).toNumber(), (height * 0.25).toNumber(), baseY, (width * 0.5).toNumber());
+        // Far mountains layer 2
+        dc.setColor(MOUNTAIN_FAR, Graphics.COLOR_TRANSPARENT);
+        drawMountainRange(dc, width, height, 0.63, 0.39, 0.63, 0.39);
 
-        // Back mountain (right)
-        drawMountainShape(dc, (width * 0.75).toNumber(), (height * 0.28).toNumber(), baseY, (width * 0.45).toNumber());
-
-        // Snow caps on back mountains
-        dc.setColor(MOUNTAIN_SNOW, Graphics.COLOR_TRANSPARENT);
-        drawSnowCap(dc, (width * 0.25).toNumber(), (height * 0.25).toNumber(), (width * 0.15).toNumber());
-        drawSnowCap(dc, (width * 0.75).toNumber(), (height * 0.28).toNumber(), (width * 0.12).toNumber());
-
-        // Front mountain - lighter
-        dc.setColor(MOUNTAIN_MID, Graphics.COLOR_TRANSPARENT);
-        drawMountainShape(dc, (width * 0.5).toNumber(), (height * 0.32).toNumber(), baseY, (width * 0.4).toNumber());
-
-        // Snow cap on front mountain
-        dc.setColor(MOUNTAIN_SNOW, Graphics.COLOR_TRANSPARENT);
-        drawSnowCap(dc, (width * 0.5).toNumber(), (height * 0.32).toNumber(), (width * 0.1).toNumber());
+        // Front mountain (brightest)
+        dc.setColor(MOUNTAIN_FRONT, Graphics.COLOR_TRANSPARENT);
+        drawFrontMountain(dc, width, height);
     }
 
-    // Draw a mountain using stepped rectangles
-    function drawMountainShape(dc as Dc, peakX as Number, peakY as Number, baseY as Number, baseWidth as Number) as Void {
+    // Draw a mountain range with peaks
+    function drawMountainRange(dc as Dc, width as Number, height as Number,
+                                baseY as Float, peak1Y as Float, peak2Y as Float, peak3Y as Float) as Void {
+        var base = (height * baseY).toNumber();
+        var step = 8;
+
+        // Draw mountains as series of triangular shapes using rectangles
+        // Peak 1 - left side
+        var peak1X = (width * 0.23).toNumber();
+        var peak1Top = (height * peak1Y).toNumber();
+        drawTriangleMountain(dc, peak1X, peak1Top, base, (width * 0.35).toNumber(), step);
+
+        // Peak 2 - center-right
+        var peak2X = (width * 0.62).toNumber();
+        var peak2Top = (height * peak2Y).toNumber();
+        drawTriangleMountain(dc, peak2X, peak2Top, base, (width * 0.35).toNumber(), step);
+    }
+
+    // Draw front mountain
+    function drawFrontMountain(dc as Dc, width as Number, height as Number) as Void {
+        var base = (height * 0.55).toNumber();
+        var peakX = (width * 0.47).toNumber();
+        var peakTop = (height * 0.31).toNumber();
+        var step = 6;
+
+        drawTriangleMountain(dc, peakX, peakTop, base, (width * 0.50).toNumber(), step);
+    }
+
+    // Draw a triangle mountain using horizontal rectangles
+    function drawTriangleMountain(dc as Dc, peakX as Number, peakY as Number, baseY as Number, baseWidth as Number, step as Number) as Void {
         var mountainHeight = baseY - peakY;
-        var stepHeight = 6;
-        var steps = mountainHeight / stepHeight;
+        var steps = mountainHeight / step;
 
         for (var i = 0; i < steps; i++) {
-            var y = peakY + i * stepHeight;
+            var y = peakY + i * step;
             var progress = i.toFloat() / steps.toFloat();
             var halfWidth = (baseWidth / 2 * progress).toNumber();
-            dc.fillRectangle(peakX - halfWidth, y, halfWidth * 2, stepHeight);
+            dc.fillRectangle(peakX - halfWidth, y, halfWidth * 2, step);
         }
     }
 
-    // Draw snow cap on mountain peak
-    function drawSnowCap(dc as Dc, peakX as Number, peakY as Number, capWidth as Number) as Void {
-        var stepHeight = 4;
-        var steps = 5;
-
-        for (var i = 0; i < steps; i++) {
-            var y = peakY + i * stepHeight;
-            var progress = i.toFloat() / steps.toFloat();
-            var halfWidth = (capWidth / 2 * (1 + progress)).toNumber();
-            // Jagged snow edge
-            for (var x = peakX - halfWidth; x < peakX + halfWidth; x += 4) {
-                var jag = ((x / 4) % 2) * 2;
-                dc.fillRectangle(x, y + jag, 4, stepHeight);
-            }
-        }
-    }
-
-    // Draw layered forest
-    function drawForest(dc as Dc, width as Number, height as Number) as Void {
-        var forestTop = (height * 0.50).toNumber();
-        var forestBottom = (height * 0.65).toNumber();
-
-        // Dark forest silhouette
-        dc.setColor(FOREST_DARK, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(0, forestTop, width, forestBottom - forestTop);
-
-        // Tree tops silhouette - jagged edge
-        for (var x = 0; x < width; x += 8) {
-            var treeHeight = 8 + ((x / 8) % 3) * 6;
-            dc.fillRectangle(x, forestTop - treeHeight, 8, treeHeight);
-        }
-
-        // Mid forest layer
-        dc.setColor(FOREST_MID, Graphics.COLOR_TRANSPARENT);
-        var midTop = (height * 0.55).toNumber();
-        for (var x = 4; x < width; x += 12) {
-            var treeHeight = 6 + ((x / 6) % 2) * 4;
-            dc.fillRectangle(x, midTop - treeHeight, 6, treeHeight + 10);
-        }
-    }
-
-    // Draw detailed pine trees on sides
-    function drawTrees(dc as Dc, width as Number, height as Number) as Void {
-        // Left tree
-        drawPineTree(dc, 0, (height * 0.20).toNumber(), height, (width * 0.18).toNumber(), true);
-
-        // Right tree
-        drawPineTree(dc, width - (width * 0.18).toNumber(), (height * 0.20).toNumber(), height, (width * 0.18).toNumber(), false);
-    }
-
-    // Draw a pine tree with snow
-    function drawPineTree(dc as Dc, x as Number, topY as Number, baseY as Number, maxWidth as Number, isLeft as Boolean) as Void {
-        var treeHeight = baseY - topY;
-        var stepHeight = 10;
-        var steps = treeHeight / stepHeight;
-
-        // Draw tree body (dark)
-        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
-        for (var i = 0; i < steps; i++) {
-            var y = topY + i * stepHeight;
-            var progress = i.toFloat() / steps.toFloat();
-            var layerWidth = (maxWidth * progress).toNumber();
-            if (isLeft) {
-                dc.fillRectangle(x, y, layerWidth, stepHeight);
-            } else {
-                dc.fillRectangle(x + maxWidth - layerWidth, y, layerWidth, stepHeight);
-            }
-        }
-
-        // Draw snow on branches
-        dc.setColor(TREE_SNOW, Graphics.COLOR_TRANSPARENT);
-        for (var i = 1; i < steps; i += 2) {
-            var y = topY + i * stepHeight;
-            var progress = i.toFloat() / steps.toFloat();
-            var layerWidth = (maxWidth * progress * 0.6).toNumber();
-            // Snow patches
-            if (isLeft) {
-                dc.fillRectangle(x + 2, y, layerWidth, 3);
-                dc.fillRectangle(x + layerWidth / 2, y + 4, layerWidth / 3, 2);
-            } else {
-                dc.fillRectangle(x + maxWidth - layerWidth - 2, y, layerWidth, 3);
-                dc.fillRectangle(x + maxWidth - layerWidth / 2, y + 4, layerWidth / 3, 2);
-            }
-        }
-    }
-
-    // Draw snow-covered ground
+    // Draw snow ground
     function drawSnowGround(dc as Dc, width as Number, height as Number) as Void {
-        var snowTop = (height * 0.68).toNumber();
+        var snowTop = (height * 0.70).toNumber();
 
-        // Main bright snow
-        dc.setColor(SNOW_BRIGHT, Graphics.COLOR_TRANSPARENT);
+        // Main white snow
+        dc.setColor(SNOW_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.fillRectangle(0, snowTop, width, height - snowTop);
 
-        // Snow texture - mid tones
-        dc.setColor(SNOW_MID, Graphics.COLOR_TRANSPARENT);
-        for (var x = 0; x < width; x += 12) {
-            var offset = ((x / 12) % 3) * 4;
-            dc.fillRectangle(x, snowTop + offset, 8, 4);
+        // Wave edge at top of snow
+        for (var x = 0; x < width; x += 10) {
+            var wave = ((x / 30) % 3) * 4;
+            dc.fillRectangle(x, snowTop - 10 + wave, 10, 10 - wave);
         }
 
-        // Shadow areas
+        // Snow shadow/texture
         dc.setColor(SNOW_SHADOW, Graphics.COLOR_TRANSPARENT);
-        var shadowY = (height * 0.85).toNumber();
-        dc.fillRectangle((width * 0.1).toNumber(), shadowY, (width * 0.25).toNumber(), 6);
-        dc.fillRectangle((width * 0.65).toNumber(), shadowY + 4, (width * 0.25).toNumber(), 6);
+        var shadowTop = (height * 0.78).toNumber();
+        // Central shadow area
+        dc.fillRectangle((width * 0.15).toNumber(), shadowTop, (width * 0.35).toNumber(), (height * 0.08).toNumber());
+        dc.fillRectangle((width * 0.55).toNumber(), shadowTop + 8, (width * 0.30).toNumber(), (height * 0.06).toNumber());
+    }
 
-        // Snow edge texture
-        dc.setColor(SNOW_BRIGHT, Graphics.COLOR_TRANSPARENT);
-        for (var x = 0; x < width; x += 6) {
-            var wave = ((x / 20) % 3) * 3;
-            dc.fillRectangle(x, snowTop - 8 + wave, 6, 8 - wave);
+    // Draw trees on both sides
+    function drawTrees(dc as Dc, width as Number, height as Number) as Void {
+        // Left tree - dark base
+        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
+        drawPineTree(dc, 0, (height * 0.31).toNumber(), (height * 0.15).toNumber(), (width * 0.15).toNumber(), true);
+
+        // Left tree - lighter layer
+        dc.setColor(TREE_LIGHT, Graphics.COLOR_TRANSPARENT);
+        drawPineTree(dc, 0, (height * 0.39).toNumber(), (height * 0.28).toNumber(), (width * 0.15).toNumber(), true);
+
+        // Right tree - dark base
+        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
+        drawPineTree(dc, width - (width * 0.15).toNumber(), (height * 0.31).toNumber(), (height * 0.15).toNumber(), (width * 0.15).toNumber(), false);
+
+        // Right tree - lighter layer
+        dc.setColor(TREE_LIGHT, Graphics.COLOR_TRANSPARENT);
+        drawPineTree(dc, width - (width * 0.15).toNumber(), (height * 0.39).toNumber(), (height * 0.28).toNumber(), (width * 0.15).toNumber(), false);
+
+        // Small middle trees (silhouettes)
+        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
+        drawSmallTree(dc, (width * 0.39).toNumber(), (height * 0.63).toNumber(), (height * 0.55).toNumber(), (width * 0.08).toNumber());
+        drawSmallTree(dc, (width * 0.55).toNumber(), (height * 0.63).toNumber(), (height * 0.55).toNumber(), (width * 0.08).toNumber());
+    }
+
+    // Draw a pine tree shape
+    function drawPineTree(dc as Dc, x as Number, baseY as Number, peakY as Number, treeWidth as Number, isLeft as Boolean) as Void {
+        var treeHeight = baseY - peakY;
+        var step = 8;
+        var steps = treeHeight / step;
+
+        for (var i = 0; i < steps; i++) {
+            var y = peakY + i * step;
+            var progress = i.toFloat() / steps.toFloat();
+            var layerWidth = (treeWidth * progress).toNumber();
+            if (isLeft) {
+                dc.fillRectangle(x, y, layerWidth, step);
+            } else {
+                dc.fillRectangle(x + treeWidth - layerWidth, y, layerWidth, step);
+            }
         }
+        // Fill to bottom
+        if (isLeft) {
+            dc.fillRectangle(x, baseY, treeWidth, (dc.getHeight() - baseY));
+        } else {
+            dc.fillRectangle(x, baseY, treeWidth, (dc.getHeight() - baseY));
+        }
+    }
+
+    // Draw small tree silhouette
+    function drawSmallTree(dc as Dc, centerX as Number, baseY as Number, peakY as Number, treeWidth as Number) as Void {
+        var treeHeight = baseY - peakY;
+        var step = 6;
+        var steps = treeHeight / step;
+
+        for (var i = 0; i < steps; i++) {
+            var y = peakY + i * step;
+            var progress = i.toFloat() / steps.toFloat();
+            var halfWidth = (treeWidth / 2 * progress).toNumber();
+            dc.fillRectangle(centerX - halfWidth, y, halfWidth * 2, step);
+        }
+        // Fill to snow line
+        dc.fillRectangle(centerX - treeWidth / 2, baseY, treeWidth, (dc.getHeight() * 0.07).toNumber());
     }
 
     // Draw falling snowflakes
     function drawFallingSnow(dc as Dc, width as Number, height as Number, seconds as Number) as Void {
-        dc.setColor(STAR_COLOR, Graphics.COLOR_TRANSPARENT);
-        var snowLimit = (height * 0.65).toNumber();
+        dc.setColor(SNOW_WHITE, Graphics.COLOR_TRANSPARENT);
+        var snowLimit = (height * 0.68).toNumber();
 
-        for (var i = 0; i < 20; i++) {
+        for (var i = 0; i < 15; i++) {
             var baseX = ((i * 37 + 11) % width);
             var baseY = ((i * 23 + 5) % snowLimit);
-            var offset = ((seconds * 5 + i * 13) % 100);
+            var offset = ((seconds * 4 + i * 17) % 80);
             var animY = (baseY + offset * 2) % snowLimit;
-            var animX = baseX + ((offset / 12) % 8) - 4;
-            var size = 2 + (i % 2);
-            dc.fillRectangle(animX, animY, size, size);
+            var animX = baseX + ((offset / 10) % 6) - 3;
+            dc.fillRectangle(animX, animY, 3, 3);
         }
     }
 
