@@ -17,14 +17,21 @@ class GarminWinterApp extends Application.AppBase {
 }
 
 class GarminWinterView extends WatchUi.WatchFace {
-    // Colors from SVG
-    private const BG_COLOR = 0x192138;           // Dark night blue
-    private const MOUNTAIN_FAR = 0x2E3C5C;       // Far mountains
-    private const MOUNTAIN_MID = 0x3C4F78;       // Mid mountains
-    private const SNOW_WHITE = 0xFFFFFF;         // Pure white snow
-    private const SNOW_SHADOW = 0xD0E0F0;        // Snow shadow
-    private const TREE_DARK = 0x0F2040;          // Dark tree
-    private const FONT_COLOR = 0xFFFFFF;         // White text
+    // Colors inspired by reference image
+    private const SKY_DARK = 0x0D1B2A;           // Dark night sky
+    private const SKY_MID = 0x1B2838;            // Mid sky
+    private const MOUNTAIN_SNOW = 0x8FAEC4;     // Snow on mountains
+    private const MOUNTAIN_DARK = 0x2A4A6A;     // Mountain shadow
+    private const MOUNTAIN_MID = 0x3A5A7A;      // Mountain mid
+    private const FOREST_DARK = 0x0A1A2A;       // Dark forest
+    private const FOREST_MID = 0x1A3A4A;        // Mid forest
+    private const TREE_DARK = 0x0F2030;         // Dark tree
+    private const TREE_SNOW = 0xB0D0E8;         // Snow on trees
+    private const SNOW_BRIGHT = 0xE8F4FF;       // Bright snow
+    private const SNOW_MID = 0xA8C8E0;          // Mid snow
+    private const SNOW_SHADOW = 0x6090B0;       // Snow shadow
+    private const STAR_COLOR = 0xFFFFFF;        // Stars
+    private const FONT_COLOR = 0xFFFFFF;        // White text
 
     private var _isLowPower as Boolean = false;
 
@@ -42,61 +49,93 @@ class GarminWinterView extends WatchUi.WatchFace {
         var centerX = width / 2;
         var centerY = height / 2;
 
-        // Clear with background color
-        dc.setColor(BG_COLOR, BG_COLOR);
-        dc.clear();
+        // Draw sky gradient (simplified)
+        drawSky(dc, width, height);
 
-        // Draw simplified winter scene using rectangles
-        drawSimpleMountains(dc, width, height);
-        drawSimpleSnowGround(dc, width, height);
-        drawSimpleTrees(dc, width, height);
-
-        // Draw falling snowflakes
+        // Draw stars
         if (!_isLowPower) {
-            drawSnowflakes(dc, width, height, clockTime.sec);
+            drawStars(dc, width, height, clockTime.sec);
+        }
+
+        // Draw mountains with snow
+        drawMountains(dc, width, height);
+
+        // Draw forest layers
+        drawForest(dc, width, height);
+
+        // Draw pine trees on sides
+        drawTrees(dc, width, height);
+
+        // Draw snow ground
+        drawSnowGround(dc, width, height);
+
+        // Draw falling snow
+        if (!_isLowPower) {
+            drawFallingSnow(dc, width, height, clockTime.sec);
         }
 
         // Draw time with pixel font
-        drawFrostTime(dc, centerX, centerY, clockTime);
+        drawFrostTime(dc, centerX, centerY - 20, clockTime);
 
         // Draw date
-        drawFrostDate(dc, centerX, centerY);
+        drawFrostDate(dc, centerX, centerY + 25);
     }
 
-    // Draw simplified mountains using horizontal bands
-    function drawSimpleMountains(dc as Dc, width as Number, height as Number) as Void {
-        // Far mountain silhouettes - using stepped rectangles for a pixelated look
-        dc.setColor(MOUNTAIN_FAR, Graphics.COLOR_TRANSPARENT);
+    // Draw night sky
+    function drawSky(dc as Dc, width as Number, height as Number) as Void {
+        dc.setColor(SKY_DARK, SKY_DARK);
+        dc.clear();
 
-        // Left mountain
-        var leftPeakX = width / 4;
-        var leftBase = height;
-        var leftTop = (height * 0.45).toNumber();
-        drawPixelMountain(dc, leftPeakX, leftTop, leftBase, width / 3);
+        // Slight gradient effect with bands
+        dc.setColor(SKY_MID, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(0, (height * 0.15).toNumber(), width, (height * 0.15).toNumber());
+    }
 
-        // Right mountain
-        var rightPeakX = (width * 3 / 4);
-        var rightTop = (height * 0.45).toNumber();
-        drawPixelMountain(dc, rightPeakX, rightTop, leftBase, width / 3);
+    // Draw twinkling stars
+    function drawStars(dc as Dc, width as Number, height as Number, seconds as Number) as Void {
+        dc.setColor(STAR_COLOR, Graphics.COLOR_TRANSPARENT);
 
-        // Front mountains (brighter)
+        // Static star positions in sky area
+        var starY = (height * 0.35).toNumber();
+        for (var i = 0; i < 25; i++) {
+            var x = ((i * 29 + 7) % width);
+            var y = ((i * 17 + 3) % starY);
+            var twinkle = ((seconds + i) % 4);
+            if (twinkle > 0) {
+                dc.fillRectangle(x, y, 2, 2);
+            }
+        }
+    }
+
+    // Draw mountains with snow caps
+    function drawMountains(dc as Dc, width as Number, height as Number) as Void {
+        var baseY = (height * 0.55).toNumber();
+
+        // Back mountain (left) - darker
+        dc.setColor(MOUNTAIN_DARK, Graphics.COLOR_TRANSPARENT);
+        drawMountainShape(dc, (width * 0.25).toNumber(), (height * 0.25).toNumber(), baseY, (width * 0.5).toNumber());
+
+        // Back mountain (right)
+        drawMountainShape(dc, (width * 0.75).toNumber(), (height * 0.28).toNumber(), baseY, (width * 0.45).toNumber());
+
+        // Snow caps on back mountains
+        dc.setColor(MOUNTAIN_SNOW, Graphics.COLOR_TRANSPARENT);
+        drawSnowCap(dc, (width * 0.25).toNumber(), (height * 0.25).toNumber(), (width * 0.15).toNumber());
+        drawSnowCap(dc, (width * 0.75).toNumber(), (height * 0.28).toNumber(), (width * 0.12).toNumber());
+
+        // Front mountain - lighter
         dc.setColor(MOUNTAIN_MID, Graphics.COLOR_TRANSPARENT);
+        drawMountainShape(dc, (width * 0.5).toNumber(), (height * 0.32).toNumber(), baseY, (width * 0.4).toNumber());
 
-        // Center-left peak
-        var centerLeftX = (width * 0.35).toNumber();
-        var centerTop = (height * 0.3).toNumber();
-        drawPixelMountain(dc, centerLeftX, centerTop, height, width / 3);
-
-        // Center-right peak
-        var centerRightX = (width * 0.7).toNumber();
-        var centerRightTop = (height * 0.35).toNumber();
-        drawPixelMountain(dc, centerRightX, centerRightTop, height, width / 4);
+        // Snow cap on front mountain
+        dc.setColor(MOUNTAIN_SNOW, Graphics.COLOR_TRANSPARENT);
+        drawSnowCap(dc, (width * 0.5).toNumber(), (height * 0.32).toNumber(), (width * 0.1).toNumber());
     }
 
-    // Draw a pixelated mountain shape using horizontal bands
-    function drawPixelMountain(dc as Dc, peakX as Number, peakY as Number, baseY as Number, baseWidth as Number) as Void {
+    // Draw a mountain using stepped rectangles
+    function drawMountainShape(dc as Dc, peakX as Number, peakY as Number, baseY as Number, baseWidth as Number) as Void {
         var mountainHeight = baseY - peakY;
-        var stepHeight = 8;  // Pixel step size
+        var stepHeight = 6;
         var steps = mountainHeight / stepHeight;
 
         for (var i = 0; i < steps; i++) {
@@ -107,106 +146,149 @@ class GarminWinterView extends WatchUi.WatchFace {
         }
     }
 
-    // Draw snow on ground
-    function drawSimpleSnowGround(dc as Dc, width as Number, height as Number) as Void {
-        var snowTop = (height * 0.70).toNumber();
+    // Draw snow cap on mountain peak
+    function drawSnowCap(dc as Dc, peakX as Number, peakY as Number, capWidth as Number) as Void {
+        var stepHeight = 4;
+        var steps = 5;
 
-        // Main snow - simple rectangle
-        dc.setColor(SNOW_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(0, snowTop, width, height - snowTop);
+        for (var i = 0; i < steps; i++) {
+            var y = peakY + i * stepHeight;
+            var progress = i.toFloat() / steps.toFloat();
+            var halfWidth = (capWidth / 2 * (1 + progress)).toNumber();
+            // Jagged snow edge
+            for (var x = peakX - halfWidth; x < peakX + halfWidth; x += 4) {
+                var jag = ((x / 4) % 2) * 2;
+                dc.fillRectangle(x, y + jag, 4, stepHeight);
+            }
+        }
+    }
 
-        // Snow wave at top - simple pixels
+    // Draw layered forest
+    function drawForest(dc as Dc, width as Number, height as Number) as Void {
+        var forestTop = (height * 0.50).toNumber();
+        var forestBottom = (height * 0.65).toNumber();
+
+        // Dark forest silhouette
+        dc.setColor(FOREST_DARK, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(0, forestTop, width, forestBottom - forestTop);
+
+        // Tree tops silhouette - jagged edge
         for (var x = 0; x < width; x += 8) {
-            var wave = ((x / 40) % 3) * 3;
-            dc.fillRectangle(x, snowTop - 10 + wave, 8, 10 - wave);
+            var treeHeight = 8 + ((x / 8) % 3) * 6;
+            dc.fillRectangle(x, forestTop - treeHeight, 8, treeHeight);
         }
 
-        // Snow shadow in middle
-        dc.setColor(SNOW_SHADOW, Graphics.COLOR_TRANSPARENT);
-        var shadowTop = (height * 0.80).toNumber();
-        var shadowLeft = (width * 0.20).toNumber();
-        var shadowRight = (width * 0.80).toNumber();
-        dc.fillRectangle(shadowLeft, shadowTop, shadowRight - shadowLeft, height - shadowTop);
+        // Mid forest layer
+        dc.setColor(FOREST_MID, Graphics.COLOR_TRANSPARENT);
+        var midTop = (height * 0.55).toNumber();
+        for (var x = 4; x < width; x += 12) {
+            var treeHeight = 6 + ((x / 6) % 2) * 4;
+            dc.fillRectangle(x, midTop - treeHeight, 6, treeHeight + 10);
+        }
     }
 
-    // Draw simple tree silhouettes
-    function drawSimpleTrees(dc as Dc, width as Number, height as Number) as Void {
-        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
-
-        // Left tree - stepped triangle
-        var leftTreeX = 0;
-        var leftTreeTop = (height * 0.15).toNumber();
-        var treeWidth = (width * 0.15).toNumber();
-        drawPixelTree(dc, leftTreeX, leftTreeTop, height, treeWidth);
+    // Draw detailed pine trees on sides
+    function drawTrees(dc as Dc, width as Number, height as Number) as Void {
+        // Left tree
+        drawPineTree(dc, 0, (height * 0.20).toNumber(), height, (width * 0.18).toNumber(), true);
 
         // Right tree
-        var rightTreeX = width - treeWidth;
-        drawPixelTree(dc, rightTreeX, leftTreeTop, height, treeWidth);
-
-        // Small background trees
-        dc.setColor(0x1A2A48, Graphics.COLOR_TRANSPARENT);
-        var smallTreeWidth = (width * 0.12).toNumber();
-        drawPixelTree(dc, (width * 0.35).toNumber(), (height * 0.55).toNumber(), height, smallTreeWidth);
-        drawPixelTree(dc, (width * 0.55).toNumber(), (height * 0.55).toNumber(), height, smallTreeWidth);
+        drawPineTree(dc, width - (width * 0.18).toNumber(), (height * 0.20).toNumber(), height, (width * 0.18).toNumber(), false);
     }
 
-    // Draw a pixelated tree
-    function drawPixelTree(dc as Dc, x as Number, topY as Number, baseY as Number, maxWidth as Number) as Void {
+    // Draw a pine tree with snow
+    function drawPineTree(dc as Dc, x as Number, topY as Number, baseY as Number, maxWidth as Number, isLeft as Boolean) as Void {
         var treeHeight = baseY - topY;
-        var stepHeight = 12;
+        var stepHeight = 10;
         var steps = treeHeight / stepHeight;
 
+        // Draw tree body (dark)
+        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
         for (var i = 0; i < steps; i++) {
             var y = topY + i * stepHeight;
             var progress = i.toFloat() / steps.toFloat();
-            var treeWidth = (maxWidth * progress).toNumber();
-            var xPos = x + (maxWidth - treeWidth) / 2;
-            dc.fillRectangle(xPos, y, treeWidth, stepHeight);
+            var layerWidth = (maxWidth * progress).toNumber();
+            if (isLeft) {
+                dc.fillRectangle(x, y, layerWidth, stepHeight);
+            } else {
+                dc.fillRectangle(x + maxWidth - layerWidth, y, layerWidth, stepHeight);
+            }
+        }
+
+        // Draw snow on branches
+        dc.setColor(TREE_SNOW, Graphics.COLOR_TRANSPARENT);
+        for (var i = 1; i < steps; i += 2) {
+            var y = topY + i * stepHeight;
+            var progress = i.toFloat() / steps.toFloat();
+            var layerWidth = (maxWidth * progress * 0.6).toNumber();
+            // Snow patches
+            if (isLeft) {
+                dc.fillRectangle(x + 2, y, layerWidth, 3);
+                dc.fillRectangle(x + layerWidth / 2, y + 4, layerWidth / 3, 2);
+            } else {
+                dc.fillRectangle(x + maxWidth - layerWidth - 2, y, layerWidth, 3);
+                dc.fillRectangle(x + maxWidth - layerWidth / 2, y + 4, layerWidth / 3, 2);
+            }
         }
     }
 
-    // Draw animated snowflakes
-    function drawSnowflakes(dc as Dc, width as Number, height as Number, seconds as Number) as Void {
-        dc.setColor(SNOW_WHITE, Graphics.COLOR_TRANSPARENT);
-        var pixelSize = 4;
+    // Draw snow-covered ground
+    function drawSnowGround(dc as Dc, width as Number, height as Number) as Void {
         var snowTop = (height * 0.68).toNumber();
 
-        // Fewer snowflakes for performance
-        for (var i = 0; i < 15; i++) {
-            var baseX = ((i * 47) % width);
-            var baseY = ((i * 31) % (snowTop - 30));
+        // Main bright snow
+        dc.setColor(SNOW_BRIGHT, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(0, snowTop, width, height - snowTop);
 
-            // Animate based on seconds
-            var offset = ((seconds * 4 + i * 11) % 80);
-            var animY = (baseY + offset * 3) % snowTop;
-            var animX = baseX + ((offset / 15) % 6) - 3;
+        // Snow texture - mid tones
+        dc.setColor(SNOW_MID, Graphics.COLOR_TRANSPARENT);
+        for (var x = 0; x < width; x += 12) {
+            var offset = ((x / 12) % 3) * 4;
+            dc.fillRectangle(x, snowTop + offset, 8, 4);
+        }
 
-            dc.fillRectangle(animX, animY, pixelSize, pixelSize);
+        // Shadow areas
+        dc.setColor(SNOW_SHADOW, Graphics.COLOR_TRANSPARENT);
+        var shadowY = (height * 0.85).toNumber();
+        dc.fillRectangle((width * 0.1).toNumber(), shadowY, (width * 0.25).toNumber(), 6);
+        dc.fillRectangle((width * 0.65).toNumber(), shadowY + 4, (width * 0.25).toNumber(), 6);
+
+        // Snow edge texture
+        dc.setColor(SNOW_BRIGHT, Graphics.COLOR_TRANSPARENT);
+        for (var x = 0; x < width; x += 6) {
+            var wave = ((x / 20) % 3) * 3;
+            dc.fillRectangle(x, snowTop - 8 + wave, 6, 8 - wave);
+        }
+    }
+
+    // Draw falling snowflakes
+    function drawFallingSnow(dc as Dc, width as Number, height as Number, seconds as Number) as Void {
+        dc.setColor(STAR_COLOR, Graphics.COLOR_TRANSPARENT);
+        var snowLimit = (height * 0.65).toNumber();
+
+        for (var i = 0; i < 20; i++) {
+            var baseX = ((i * 37 + 11) % width);
+            var baseY = ((i * 23 + 5) % snowLimit);
+            var offset = ((seconds * 5 + i * 13) % 100);
+            var animY = (baseY + offset * 2) % snowLimit;
+            var animX = baseX + ((offset / 12) % 8) - 4;
+            var size = 2 + (i % 2);
+            dc.fillRectangle(animX, animY, size, size);
         }
     }
 
     // Draw pixel digit
     function drawPixelDigit(dc as Dc, digit as Number, x as Number, y as Number, pixelSize as Number) as Void {
         var patterns = [
-            // 0
             [[1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,0,0,0,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1]],
-            // 1
             [[0,0,1,0,0], [0,1,1,0,0], [0,0,1,0,0], [0,0,1,0,0], [0,0,1,0,0], [0,0,1,0,0], [0,1,1,1,0]],
-            // 2
             [[1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1], [1,0,0,0,0], [1,0,0,0,0], [1,1,1,1,1]],
-            // 3
             [[1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1]],
-            // 4
             [[1,0,0,0,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [0,0,0,0,1]],
-            // 5
             [[1,1,1,1,1], [1,0,0,0,0], [1,0,0,0,0], [1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1]],
-            // 6
             [[1,1,1,1,1], [1,0,0,0,0], [1,0,0,0,0], [1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1]],
-            // 7
             [[1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [0,0,0,1,0], [0,0,1,0,0], [0,0,1,0,0], [0,0,1,0,0]],
-            // 8
             [[1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1]],
-            // 9
             [[1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1]]
         ];
 
@@ -220,18 +302,15 @@ class GarminWinterView extends WatchUi.WatchFace {
         }
     }
 
-    // Draw colon
     function drawColon(dc as Dc, x as Number, y as Number, pixelSize as Number) as Void {
         dc.fillRectangle(x, y + pixelSize * 2, pixelSize - 1, pixelSize - 1);
         dc.fillRectangle(x, y + pixelSize * 4, pixelSize - 1, pixelSize - 1);
     }
 
-    // Draw time display
     function drawFrostTime(dc as Dc, centerX as Number, centerY as Number, clockTime as System.ClockTime) as Void {
         var hour = clockTime.hour;
         var min = clockTime.min;
 
-        // 12-hour format
         if (!System.getDeviceSettings().is24Hour) {
             hour = hour % 12;
             if (hour == 0) { hour = 12; }
@@ -242,17 +321,16 @@ class GarminWinterView extends WatchUi.WatchFace {
         var m1 = min / 10;
         var m2 = min % 10;
 
-        var pixelSize = 6;
+        var pixelSize = 5;
         var digitWidth = 5 * pixelSize;
         var colonWidth = pixelSize;
         var spacing = pixelSize;
         var totalWidth = digitWidth * 4 + colonWidth + spacing * 4;
         var startX = centerX - totalWidth / 2;
-        var startY = centerY - 30;
+        var startY = centerY - 17;
 
         dc.setColor(FONT_COLOR, Graphics.COLOR_TRANSPARENT);
 
-        // Draw digits and colon
         drawPixelDigit(dc, h1, startX, startY, pixelSize);
         startX += digitWidth + spacing;
         drawPixelDigit(dc, h2, startX, startY, pixelSize);
@@ -264,14 +342,13 @@ class GarminWinterView extends WatchUi.WatchFace {
         drawPixelDigit(dc, m2, startX, startY, pixelSize);
     }
 
-    // Draw date
     function drawFrostDate(dc as Dc, centerX as Number, centerY as Number) as Void {
         var now = Time.now();
         var info = Gregorian.info(now, Time.FORMAT_MEDIUM);
         var dateStr = info.day_of_week + " " + info.day;
 
         dc.setColor(FONT_COLOR, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX, centerY + 30, Graphics.FONT_SMALL, dateStr, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(centerX, centerY, Graphics.FONT_SMALL, dateStr, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function onEnterSleep() as Void {
