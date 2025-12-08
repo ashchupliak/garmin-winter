@@ -1,0 +1,14 @@
+# Build artifacts
+*.prg
+*.prg.debug.xml
+*.iq
+gen/
+internal-mir/
+external-mir/
+
+# Developer key (sensitive)
+developer_key.der
+
+# IDE settings
+*.json
+.vscode/
