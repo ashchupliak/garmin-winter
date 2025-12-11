@@ -17,16 +17,12 @@ class GarminWinterApp extends Application.AppBase {
 }
 
 class GarminWinterView extends WatchUi.WatchFace {
-    // Colors from SVG reference
-    private const SKY_COLOR = 0x192138;          // Dark night sky
-    private const MOUNTAIN_FAR = 0x2E3C5C;       // Far mountains
-    private const MOUNTAIN_FRONT = 0x3C4F78;     // Front mountain
-    private const SNOW_WHITE = 0xFFFFFF;         // Pure white snow
-    private const SNOW_SHADOW = 0xD0E0F0;        // Snow shadow/texture
-    private const TREE_DARK = 0x0F2040;          // Dark tree
-    private const TREE_LIGHT = 0x1A3A60;         // Light tree
-    private const FONT_COLOR = 0xFFFFFF;         // White text
+    // Frost Crystal font colors
+    private const FONT_COLOR = 0xFFFFFF;      // White - main text
+    private const FONT_GLOW = 0x8090C0;       // Blue-purple glow/shadow
+    private const SNOW_COLOR = 0xFFFFFF;      // White snowflakes
 
+    private var _background as BitmapResource?;
     private var _isLowPower as Boolean = false;
 
     function initialize() {
@@ -34,6 +30,7 @@ class GarminWinterView extends WatchUi.WatchFace {
     }
 
     function onLayout(dc as Dc) as Void {
+        _background = WatchUi.loadResource(Rez.Drawables.Background) as BitmapResource;
     }
 
     function onUpdate(dc as Dc) as Void {
@@ -43,237 +40,190 @@ class GarminWinterView extends WatchUi.WatchFace {
         var centerX = width / 2;
         var centerY = height / 2;
 
-        // Draw sky background
-        dc.setColor(SKY_COLOR, SKY_COLOR);
-        dc.clear();
+        // Draw background image scaled to screen size
+        if (_background != null) {
+            dc.drawScaledBitmap(0, 0, width, height, _background);
+        }
 
-        // Draw stars
-        drawStars(dc, width, height);
-
-        // Draw mountains (back to front)
-        drawMountains(dc, width, height);
-
-        // Draw snow ground
-        drawSnowGround(dc, width, height);
-
-        // Draw trees on sides
-        drawTrees(dc, width, height);
-
-        // Draw falling snow animation
+        // Draw falling snow
         if (!_isLowPower) {
             drawFallingSnow(dc, width, height, clockTime.sec);
         }
 
-        // Draw time with pixel font
-        drawFrostTime(dc, centerX, centerY - 15, clockTime);
+        // Draw time with Frost Crystal font
+        drawFrostCrystalTime(dc, centerX, centerY - 10, clockTime);
 
-        // Draw date
-        drawFrostDate(dc, centerX, centerY + 30);
-    }
-
-    // Draw stars in sky
-    function drawStars(dc as Dc, width as Number, height as Number) as Void {
-        dc.setColor(SNOW_WHITE, Graphics.COLOR_TRANSPARENT);
-        // Fixed star positions from SVG
-        dc.fillRectangle((width * 0.08).toNumber(), (height * 0.08).toNumber(), 3, 3);
-        dc.fillRectangle((width * 0.23).toNumber(), (height * 0.12).toNumber(), 3, 3);
-        dc.fillRectangle((width * 0.39).toNumber(), (height * 0.05).toNumber(), 3, 3);
-        dc.fillRectangle((width * 0.55).toNumber(), (height * 0.15).toNumber(), 3, 3);
-        dc.fillRectangle((width * 0.70).toNumber(), (height * 0.09).toNumber(), 3, 3);
-        dc.fillRectangle((width * 0.86).toNumber(), (height * 0.18).toNumber(), 3, 3);
-        dc.fillRectangle((width * 0.03).toNumber(), (height * 0.28).toNumber(), 3, 3);
-        dc.fillRectangle((width * 0.94).toNumber(), (height * 0.31).toNumber(), 3, 3);
-    }
-
-    // Draw layered mountains
-    function drawMountains(dc as Dc, width as Number, height as Number) as Void {
-        // Far mountains layer 1 (back, semi-transparent effect via darker color)
-        var farColor1 = 0x252F4A; // Darker version for opacity effect
-        dc.setColor(farColor1, Graphics.COLOR_TRANSPARENT);
-        drawMountainRange(dc, width, height, 0.70, 0.47, 0.70, 0.47);
-
-        // Far mountains layer 2
-        dc.setColor(MOUNTAIN_FAR, Graphics.COLOR_TRANSPARENT);
-        drawMountainRange(dc, width, height, 0.63, 0.39, 0.63, 0.39);
-
-        // Front mountain (brightest)
-        dc.setColor(MOUNTAIN_FRONT, Graphics.COLOR_TRANSPARENT);
-        drawFrontMountain(dc, width, height);
-    }
-
-    // Draw a mountain range with peaks
-    function drawMountainRange(dc as Dc, width as Number, height as Number,
-                                baseY as Float, peak1Y as Float, peak2Y as Float, peak3Y as Float) as Void {
-        var base = (height * baseY).toNumber();
-        var step = 8;
-
-        // Draw mountains as series of triangular shapes using rectangles
-        // Peak 1 - left side
-        var peak1X = (width * 0.23).toNumber();
-        var peak1Top = (height * peak1Y).toNumber();
-        drawTriangleMountain(dc, peak1X, peak1Top, base, (width * 0.35).toNumber(), step);
-
-        // Peak 2 - center-right
-        var peak2X = (width * 0.62).toNumber();
-        var peak2Top = (height * peak2Y).toNumber();
-        drawTriangleMountain(dc, peak2X, peak2Top, base, (width * 0.35).toNumber(), step);
-    }
-
-    // Draw front mountain
-    function drawFrontMountain(dc as Dc, width as Number, height as Number) as Void {
-        var base = (height * 0.55).toNumber();
-        var peakX = (width * 0.47).toNumber();
-        var peakTop = (height * 0.31).toNumber();
-        var step = 6;
-
-        drawTriangleMountain(dc, peakX, peakTop, base, (width * 0.50).toNumber(), step);
-    }
-
-    // Draw a triangle mountain using horizontal rectangles
-    function drawTriangleMountain(dc as Dc, peakX as Number, peakY as Number, baseY as Number, baseWidth as Number, step as Number) as Void {
-        var mountainHeight = baseY - peakY;
-        var steps = mountainHeight / step;
-
-        for (var i = 0; i < steps; i++) {
-            var y = peakY + i * step;
-            var progress = i.toFloat() / steps.toFloat();
-            var halfWidth = (baseWidth / 2 * progress).toNumber();
-            dc.fillRectangle(peakX - halfWidth, y, halfWidth * 2, step);
-        }
-    }
-
-    // Draw snow ground
-    function drawSnowGround(dc as Dc, width as Number, height as Number) as Void {
-        var snowTop = (height * 0.70).toNumber();
-
-        // Main white snow
-        dc.setColor(SNOW_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(0, snowTop, width, height - snowTop);
-
-        // Wave edge at top of snow
-        for (var x = 0; x < width; x += 10) {
-            var wave = ((x / 30) % 3) * 4;
-            dc.fillRectangle(x, snowTop - 10 + wave, 10, 10 - wave);
-        }
-
-        // Snow shadow/texture
-        dc.setColor(SNOW_SHADOW, Graphics.COLOR_TRANSPARENT);
-        var shadowTop = (height * 0.78).toNumber();
-        // Central shadow area
-        dc.fillRectangle((width * 0.15).toNumber(), shadowTop, (width * 0.35).toNumber(), (height * 0.08).toNumber());
-        dc.fillRectangle((width * 0.55).toNumber(), shadowTop + 8, (width * 0.30).toNumber(), (height * 0.06).toNumber());
-    }
-
-    // Draw trees on both sides
-    function drawTrees(dc as Dc, width as Number, height as Number) as Void {
-        // Left tree - dark base
-        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
-        drawPineTree(dc, 0, (height * 0.31).toNumber(), (height * 0.15).toNumber(), (width * 0.15).toNumber(), true);
-
-        // Left tree - lighter layer
-        dc.setColor(TREE_LIGHT, Graphics.COLOR_TRANSPARENT);
-        drawPineTree(dc, 0, (height * 0.39).toNumber(), (height * 0.28).toNumber(), (width * 0.15).toNumber(), true);
-
-        // Right tree - dark base
-        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
-        drawPineTree(dc, width - (width * 0.15).toNumber(), (height * 0.31).toNumber(), (height * 0.15).toNumber(), (width * 0.15).toNumber(), false);
-
-        // Right tree - lighter layer
-        dc.setColor(TREE_LIGHT, Graphics.COLOR_TRANSPARENT);
-        drawPineTree(dc, width - (width * 0.15).toNumber(), (height * 0.39).toNumber(), (height * 0.28).toNumber(), (width * 0.15).toNumber(), false);
-
-        // Small middle trees (silhouettes)
-        dc.setColor(TREE_DARK, Graphics.COLOR_TRANSPARENT);
-        drawSmallTree(dc, (width * 0.39).toNumber(), (height * 0.63).toNumber(), (height * 0.55).toNumber(), (width * 0.08).toNumber());
-        drawSmallTree(dc, (width * 0.55).toNumber(), (height * 0.63).toNumber(), (height * 0.55).toNumber(), (width * 0.08).toNumber());
-    }
-
-    // Draw a pine tree shape
-    function drawPineTree(dc as Dc, x as Number, baseY as Number, peakY as Number, treeWidth as Number, isLeft as Boolean) as Void {
-        var treeHeight = baseY - peakY;
-        var step = 8;
-        var steps = treeHeight / step;
-
-        for (var i = 0; i < steps; i++) {
-            var y = peakY + i * step;
-            var progress = i.toFloat() / steps.toFloat();
-            var layerWidth = (treeWidth * progress).toNumber();
-            if (isLeft) {
-                dc.fillRectangle(x, y, layerWidth, step);
-            } else {
-                dc.fillRectangle(x + treeWidth - layerWidth, y, layerWidth, step);
-            }
-        }
-        // Fill to bottom
-        if (isLeft) {
-            dc.fillRectangle(x, baseY, treeWidth, (dc.getHeight() - baseY));
-        } else {
-            dc.fillRectangle(x, baseY, treeWidth, (dc.getHeight() - baseY));
-        }
-    }
-
-    // Draw small tree silhouette
-    function drawSmallTree(dc as Dc, centerX as Number, baseY as Number, peakY as Number, treeWidth as Number) as Void {
-        var treeHeight = baseY - peakY;
-        var step = 6;
-        var steps = treeHeight / step;
-
-        for (var i = 0; i < steps; i++) {
-            var y = peakY + i * step;
-            var progress = i.toFloat() / steps.toFloat();
-            var halfWidth = (treeWidth / 2 * progress).toNumber();
-            dc.fillRectangle(centerX - halfWidth, y, halfWidth * 2, step);
-        }
-        // Fill to snow line
-        dc.fillRectangle(centerX - treeWidth / 2, baseY, treeWidth, (dc.getHeight() * 0.07).toNumber());
+        // Draw date with Frost Crystal font
+        drawFrostCrystalDate(dc, centerX, centerY + 28);
     }
 
     // Draw falling snowflakes
     function drawFallingSnow(dc as Dc, width as Number, height as Number, seconds as Number) as Void {
-        dc.setColor(SNOW_WHITE, Graphics.COLOR_TRANSPARENT);
-        var snowLimit = (height * 0.68).toNumber();
+        dc.setColor(SNOW_COLOR, Graphics.COLOR_TRANSPARENT);
+        var snowLimit = (height * 0.75).toNumber();
 
-        for (var i = 0; i < 15; i++) {
+        for (var i = 0; i < 20; i++) {
             var baseX = ((i * 37 + 11) % width);
             var baseY = ((i * 23 + 5) % snowLimit);
             var offset = ((seconds * 4 + i * 17) % 80);
-            var animY = (baseY + offset * 2) % snowLimit;
-            var animX = baseX + ((offset / 10) % 6) - 3;
-            dc.fillRectangle(animX, animY, 3, 3);
+            var animY = (baseY + offset * 3) % snowLimit;
+            var animX = baseX + ((offset / 10) % 8) - 4;
+            var size = (i % 3) + 2;
+            dc.fillRectangle(animX, animY, size, size);
         }
     }
 
-    // Draw pixel digit
-    function drawPixelDigit(dc as Dc, digit as Number, x as Number, y as Number, pixelSize as Number) as Void {
+    // ═══════════════════════════════════════════════════════════════════
+    // FROST CRYSTAL FONT - Custom designed for Winter Scene watchface
+    // Design: Angular ice-crystal shapes with blue glow effect
+    // Grid: 7 wide x 9 tall for main digits
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Draw a Frost Crystal digit with glow effect (7x9 grid)
+    function drawFrostDigit(dc as Dc, digit as Number, x as Number, y as Number, pixelSize as Number) as Void {
+        // Frost Crystal digit patterns (7 wide x 9 tall)
+        // Design features: angular cuts, ice-crystal aesthetic, bold strokes
         var patterns = [
-            [[1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,0,0,0,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1]],
-            [[0,0,1,0,0], [0,1,1,0,0], [0,0,1,0,0], [0,0,1,0,0], [0,0,1,0,0], [0,0,1,0,0], [0,1,1,1,0]],
-            [[1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1], [1,0,0,0,0], [1,0,0,0,0], [1,1,1,1,1]],
-            [[1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1]],
-            [[1,0,0,0,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [0,0,0,0,1]],
-            [[1,1,1,1,1], [1,0,0,0,0], [1,0,0,0,0], [1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1]],
-            [[1,1,1,1,1], [1,0,0,0,0], [1,0,0,0,0], [1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1]],
-            [[1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [0,0,0,1,0], [0,0,1,0,0], [0,0,1,0,0], [0,0,1,0,0]],
-            [[1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1]],
-            [[1,1,1,1,1], [1,0,0,0,1], [1,0,0,0,1], [1,1,1,1,1], [0,0,0,0,1], [0,0,0,0,1], [1,1,1,1,1]]
+            // 0 - Oval with angular cuts at corners
+            [[0,1,1,1,1,1,0],
+             [1,1,0,0,0,1,1],
+             [1,0,0,0,0,0,1],
+             [1,0,0,0,0,0,1],
+             [1,0,0,0,0,0,1],
+             [1,0,0,0,0,0,1],
+             [1,0,0,0,0,0,1],
+             [1,1,0,0,0,1,1],
+             [0,1,1,1,1,1,0]],
+            // 1 - Crystal pillar with angular base
+            [[0,0,0,1,0,0,0],
+             [0,0,1,1,0,0,0],
+             [0,1,0,1,0,0,0],
+             [0,0,0,1,0,0,0],
+             [0,0,0,1,0,0,0],
+             [0,0,0,1,0,0,0],
+             [0,0,0,1,0,0,0],
+             [0,0,0,1,0,0,0],
+             [0,1,1,1,1,1,0]],
+            // 2 - Sharp angular turns
+            [[0,1,1,1,1,1,0],
+             [1,1,0,0,0,1,1],
+             [0,0,0,0,0,0,1],
+             [0,0,0,0,0,1,1],
+             [0,0,1,1,1,0,0],
+             [0,1,1,0,0,0,0],
+             [1,0,0,0,0,0,0],
+             [1,1,0,0,0,1,1],
+             [0,1,1,1,1,1,0]],
+            // 3 - Double crystal curves
+            [[0,1,1,1,1,1,0],
+             [1,1,0,0,0,1,1],
+             [0,0,0,0,0,0,1],
+             [0,0,0,0,0,1,1],
+             [0,0,1,1,1,0,0],
+             [0,0,0,0,0,1,1],
+             [0,0,0,0,0,0,1],
+             [1,1,0,0,0,1,1],
+             [0,1,1,1,1,1,0]],
+            // 4 - Angular ice shard
+            [[0,0,0,0,1,0,0],
+             [0,0,0,1,1,0,0],
+             [0,0,1,0,1,0,0],
+             [0,1,0,0,1,0,0],
+             [1,0,0,0,1,0,0],
+             [1,1,1,1,1,1,1],
+             [0,0,0,0,1,0,0],
+             [0,0,0,0,1,0,0],
+             [0,0,0,0,1,0,0]],
+            // 5 - Bold crystal block
+            [[1,1,1,1,1,1,1],
+             [1,0,0,0,0,0,0],
+             [1,0,0,0,0,0,0],
+             [1,1,1,1,1,0,0],
+             [0,0,0,0,1,1,0],
+             [0,0,0,0,0,1,1],
+             [0,0,0,0,0,0,1],
+             [1,1,0,0,0,1,1],
+             [0,1,1,1,1,1,0]],
+            // 6 - Flowing crystal
+            [[0,0,1,1,1,1,0],
+             [0,1,1,0,0,0,0],
+             [1,0,0,0,0,0,0],
+             [1,0,1,1,1,0,0],
+             [1,1,0,0,0,1,0],
+             [1,0,0,0,0,1,1],
+             [1,0,0,0,0,0,1],
+             [1,1,0,0,0,1,1],
+             [0,1,1,1,1,1,0]],
+            // 7 - Sharp ice angle
+            [[1,1,1,1,1,1,1],
+             [1,1,0,0,0,1,1],
+             [0,0,0,0,0,1,0],
+             [0,0,0,0,1,0,0],
+             [0,0,0,1,0,0,0],
+             [0,0,1,0,0,0,0],
+             [0,0,1,0,0,0,0],
+             [0,0,1,0,0,0,0],
+             [0,0,1,0,0,0,0]],
+            // 8 - Double crystal rings
+            [[0,1,1,1,1,1,0],
+             [1,1,0,0,0,1,1],
+             [1,0,0,0,0,0,1],
+             [1,1,0,0,0,1,1],
+             [0,1,1,1,1,1,0],
+             [1,1,0,0,0,1,1],
+             [1,0,0,0,0,0,1],
+             [1,1,0,0,0,1,1],
+             [0,1,1,1,1,1,0]],
+            // 9 - Inverted crystal 6
+            [[0,1,1,1,1,1,0],
+             [1,1,0,0,0,1,1],
+             [1,0,0,0,0,0,1],
+             [1,1,0,0,0,0,1],
+             [0,1,1,1,1,0,1],
+             [0,0,0,0,0,0,1],
+             [0,0,0,0,0,1,1],
+             [0,0,0,0,1,1,0],
+             [0,1,1,1,1,0,0]]
         ];
 
         var pattern = patterns[digit];
-        for (var row = 0; row < 7; row++) {
-            for (var col = 0; col < 5; col++) {
+
+        // Draw blue glow/shadow first (offset by 2 pixels)
+        dc.setColor(FONT_GLOW, Graphics.COLOR_TRANSPARENT);
+        for (var row = 0; row < 9; row++) {
+            for (var col = 0; col < 7; col++) {
                 if (pattern[row][col] == 1) {
-                    dc.fillRectangle(x + col * pixelSize, y + row * pixelSize, pixelSize - 1, pixelSize - 1);
+                    dc.fillRectangle(x + col * pixelSize + 2, y + row * pixelSize + 2, pixelSize, pixelSize);
+                }
+            }
+        }
+
+        // Draw main white digit on top
+        dc.setColor(FONT_COLOR, Graphics.COLOR_TRANSPARENT);
+        for (var row = 0; row < 9; row++) {
+            for (var col = 0; col < 7; col++) {
+                if (pattern[row][col] == 1) {
+                    dc.fillRectangle(x + col * pixelSize, y + row * pixelSize, pixelSize, pixelSize);
                 }
             }
         }
     }
 
-    function drawColon(dc as Dc, x as Number, y as Number, pixelSize as Number) as Void {
-        dc.fillRectangle(x, y + pixelSize * 2, pixelSize - 1, pixelSize - 1);
-        dc.fillRectangle(x, y + pixelSize * 4, pixelSize - 1, pixelSize - 1);
+    // Draw Frost Crystal colon (vertical ice crystals)
+    function drawFrostColon(dc as Dc, x as Number, y as Number, pixelSize as Number) as Void {
+        // Glow
+        dc.setColor(FONT_GLOW, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(x + 2, y + pixelSize * 2 + 2, pixelSize * 2, pixelSize * 2);
+        dc.fillRectangle(x + 2, y + pixelSize * 5 + 2, pixelSize * 2, pixelSize * 2);
+
+        // Main dots
+        dc.setColor(FONT_COLOR, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(x, y + pixelSize * 2, pixelSize * 2, pixelSize * 2);
+        dc.fillRectangle(x, y + pixelSize * 5, pixelSize * 2, pixelSize * 2);
     }
 
-    function drawFrostTime(dc as Dc, centerX as Number, centerY as Number, clockTime as System.ClockTime) as Void {
+    // Main time drawing function
+    function drawFrostCrystalTime(dc as Dc, centerX as Number, centerY as Number, clockTime as System.ClockTime) as Void {
         var hour = clockTime.hour;
         var min = clockTime.min;
 
@@ -287,34 +237,172 @@ class GarminWinterView extends WatchUi.WatchFace {
         var m1 = min / 10;
         var m2 = min % 10;
 
-        var pixelSize = 5;
-        var digitWidth = 5 * pixelSize;
-        var colonWidth = pixelSize;
-        var spacing = pixelSize;
+        var pixelSize = 4;  // Each "pixel" is 4x4
+        var digitWidth = 7 * pixelSize;  // 7 columns
+        var colonWidth = pixelSize * 3;
+        var spacing = pixelSize * 2;
         var totalWidth = digitWidth * 4 + colonWidth + spacing * 4;
         var startX = centerX - totalWidth / 2;
-        var startY = centerY - 17;
+        var startY = centerY - (9 * pixelSize) / 2;
 
-        dc.setColor(FONT_COLOR, Graphics.COLOR_TRANSPARENT);
-
-        drawPixelDigit(dc, h1, startX, startY, pixelSize);
+        drawFrostDigit(dc, h1, startX, startY, pixelSize);
         startX += digitWidth + spacing;
-        drawPixelDigit(dc, h2, startX, startY, pixelSize);
+        drawFrostDigit(dc, h2, startX, startY, pixelSize);
         startX += digitWidth + spacing;
-        drawColon(dc, startX, startY, pixelSize);
+        drawFrostColon(dc, startX, startY, pixelSize);
         startX += colonWidth + spacing;
-        drawPixelDigit(dc, m1, startX, startY, pixelSize);
+        drawFrostDigit(dc, m1, startX, startY, pixelSize);
         startX += digitWidth + spacing;
-        drawPixelDigit(dc, m2, startX, startY, pixelSize);
+        drawFrostDigit(dc, m2, startX, startY, pixelSize);
     }
 
-    function drawFrostDate(dc as Dc, centerX as Number, centerY as Number) as Void {
-        var now = Time.now();
-        var info = Gregorian.info(now, Time.FORMAT_MEDIUM);
-        var dateStr = info.day_of_week + " " + info.day;
+    // ═══════════════════════════════════════════════════════════════════
+    // FROST CRYSTAL LETTERS - For date display (4x6 grid)
+    // ═══════════════════════════════════════════════════════════════════
 
+    function drawFrostLetter(dc as Dc, letter as String, x as Number, y as Number, pixelSize as Number) as Number {
+        var pattern = null;
+        var width = 4;
+
+        // Frost Crystal letter patterns (4 wide x 6 tall)
+        if (letter.equals("S")) {
+            pattern = [[0,1,1,1], [1,0,0,0], [0,1,1,0], [0,0,0,1], [0,0,0,1], [1,1,1,0]];
+        } else if (letter.equals("u")) {
+            pattern = [[0,0,0,0], [1,0,0,1], [1,0,0,1], [1,0,0,1], [1,0,0,1], [0,1,1,0]];
+        } else if (letter.equals("n")) {
+            pattern = [[0,0,0,0], [1,1,1,0], [1,0,0,1], [1,0,0,1], [1,0,0,1], [1,0,0,1]];
+        } else if (letter.equals("M")) {
+            pattern = [[1,0,0,1], [1,1,1,1], [1,0,0,1], [1,0,0,1], [1,0,0,1], [1,0,0,1]];
+        } else if (letter.equals("o")) {
+            pattern = [[0,0,0,0], [0,1,1,0], [1,0,0,1], [1,0,0,1], [1,0,0,1], [0,1,1,0]];
+        } else if (letter.equals("T")) {
+            pattern = [[1,1,1,1], [0,1,1,0], [0,1,1,0], [0,1,1,0], [0,1,1,0], [0,1,1,0]];
+        } else if (letter.equals("e")) {
+            pattern = [[0,0,0,0], [0,1,1,0], [1,0,0,1], [1,1,1,1], [1,0,0,0], [0,1,1,1]];
+        } else if (letter.equals("W")) {
+            pattern = [[1,0,0,1], [1,0,0,1], [1,0,0,1], [1,0,0,1], [1,1,1,1], [1,0,0,1]];
+        } else if (letter.equals("d")) {
+            pattern = [[0,0,0,1], [0,0,0,1], [0,1,1,1], [1,0,0,1], [1,0,0,1], [0,1,1,1]];
+        } else if (letter.equals("h")) {
+            pattern = [[1,0,0,0], [1,0,0,0], [1,1,1,0], [1,0,0,1], [1,0,0,1], [1,0,0,1]];
+        } else if (letter.equals("F")) {
+            pattern = [[1,1,1,1], [1,0,0,0], [1,1,1,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]];
+        } else if (letter.equals("r")) {
+            pattern = [[0,0,0,0], [1,0,1,1], [1,1,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]];
+        } else if (letter.equals("i")) {
+            pattern = [[0,1,0,0], [0,0,0,0], [0,1,0,0], [0,1,0,0], [0,1,0,0], [0,1,0,0]];
+            width = 2;
+        } else if (letter.equals("a")) {
+            pattern = [[0,0,0,0], [0,1,1,1], [0,0,0,1], [0,1,1,1], [1,0,0,1], [0,1,1,1]];
+        } else if (letter.equals("t")) {
+            pattern = [[0,1,0,0], [1,1,1,0], [0,1,0,0], [0,1,0,0], [0,1,0,0], [0,0,1,1]];
+            width = 3;
+        } else if (letter.equals(" ")) {
+            return x + pixelSize * 2;
+        } else {
+            return x + pixelSize * 4;
+        }
+
+        if (pattern != null) {
+            // Glow
+            dc.setColor(FONT_GLOW, Graphics.COLOR_TRANSPARENT);
+            for (var row = 0; row < 6; row++) {
+                for (var col = 0; col < width; col++) {
+                    if (pattern[row][col] == 1) {
+                        dc.fillRectangle(x + col * pixelSize + 1, y + row * pixelSize + 1, pixelSize, pixelSize);
+                    }
+                }
+            }
+            // Main
+            dc.setColor(FONT_COLOR, Graphics.COLOR_TRANSPARENT);
+            for (var row = 0; row < 6; row++) {
+                for (var col = 0; col < width; col++) {
+                    if (pattern[row][col] == 1) {
+                        dc.fillRectangle(x + col * pixelSize, y + row * pixelSize, pixelSize, pixelSize);
+                    }
+                }
+            }
+        }
+
+        return x + (width + 1) * pixelSize;
+    }
+
+    // Frost Crystal small digit (4x6 grid)
+    function drawFrostSmallDigit(dc as Dc, digit as Number, x as Number, y as Number, pixelSize as Number) as Void {
+        var patterns = [
+            [[0,1,1,0], [1,0,0,1], [1,0,0,1], [1,0,0,1], [1,0,0,1], [0,1,1,0]],  // 0
+            [[0,0,1,0], [0,1,1,0], [0,0,1,0], [0,0,1,0], [0,0,1,0], [0,1,1,1]],  // 1
+            [[0,1,1,0], [1,0,0,1], [0,0,1,0], [0,1,0,0], [1,0,0,0], [1,1,1,1]],  // 2
+            [[1,1,1,0], [0,0,0,1], [0,1,1,0], [0,0,0,1], [0,0,0,1], [1,1,1,0]],  // 3
+            [[0,0,1,0], [0,1,1,0], [1,0,1,0], [1,1,1,1], [0,0,1,0], [0,0,1,0]],  // 4
+            [[1,1,1,1], [1,0,0,0], [1,1,1,0], [0,0,0,1], [0,0,0,1], [1,1,1,0]],  // 5
+            [[0,1,1,0], [1,0,0,0], [1,1,1,0], [1,0,0,1], [1,0,0,1], [0,1,1,0]],  // 6
+            [[1,1,1,1], [0,0,0,1], [0,0,1,0], [0,1,0,0], [0,1,0,0], [0,1,0,0]],  // 7
+            [[0,1,1,0], [1,0,0,1], [0,1,1,0], [1,0,0,1], [1,0,0,1], [0,1,1,0]],  // 8
+            [[0,1,1,0], [1,0,0,1], [0,1,1,1], [0,0,0,1], [0,0,1,0], [0,1,0,0]]   // 9
+        ];
+
+        var pattern = patterns[digit];
+
+        // Glow
+        dc.setColor(FONT_GLOW, Graphics.COLOR_TRANSPARENT);
+        for (var row = 0; row < 6; row++) {
+            for (var col = 0; col < 4; col++) {
+                if (pattern[row][col] == 1) {
+                    dc.fillRectangle(x + col * pixelSize + 1, y + row * pixelSize + 1, pixelSize, pixelSize);
+                }
+            }
+        }
+
+        // Main
         dc.setColor(FONT_COLOR, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX, centerY, Graphics.FONT_SMALL, dateStr, Graphics.TEXT_JUSTIFY_CENTER);
+        for (var row = 0; row < 6; row++) {
+            for (var col = 0; col < 4; col++) {
+                if (pattern[row][col] == 1) {
+                    dc.fillRectangle(x + col * pixelSize, y + row * pixelSize, pixelSize, pixelSize);
+                }
+            }
+        }
+    }
+
+    // Date drawing function
+    function drawFrostCrystalDate(dc as Dc, centerX as Number, centerY as Number) as Void {
+        var now = Time.now();
+        var info = Gregorian.info(now, Time.FORMAT_SHORT);
+
+        var dow = info.day_of_week;
+        var dayStr = "";
+        if (dow == 1) { dayStr = "Sun"; }
+        else if (dow == 2) { dayStr = "Mon"; }
+        else if (dow == 3) { dayStr = "Tue"; }
+        else if (dow == 4) { dayStr = "Wed"; }
+        else if (dow == 5) { dayStr = "Thu"; }
+        else if (dow == 6) { dayStr = "Fri"; }
+        else if (dow == 7) { dayStr = "Sat"; }
+
+        var day = info.day;
+        var pixelSize = 3;
+
+        // Calculate width
+        var totalWidth = 3 * 5 * pixelSize + 3 * pixelSize + 2 * 5 * pixelSize;
+        var startX = centerX - totalWidth / 2;
+
+        // Draw day name
+        for (var i = 0; i < dayStr.length(); i++) {
+            startX = drawFrostLetter(dc, dayStr.substring(i, i + 1), startX, centerY, pixelSize);
+        }
+
+        startX += pixelSize * 2;
+
+        // Draw day number
+        var d1 = day / 10;
+        var d2 = day % 10;
+
+        if (d1 > 0) {
+            drawFrostSmallDigit(dc, d1, startX, centerY, pixelSize);
+            startX += 5 * pixelSize;
+        }
+        drawFrostSmallDigit(dc, d2, startX, centerY, pixelSize);
     }
 
     function onEnterSleep() as Void {
